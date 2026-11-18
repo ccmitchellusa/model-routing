@@ -4,7 +4,9 @@ Pure routing logic plus an in-memory store. This module holds no credentials.
 It returns ``secret://<tenant>/<provider>`` references, and a separate resolver
 turns those into keys at call time.
 
-Resolution order (see docs/01-architecture.md):
+Resolution order (see docs/01-architecture.md and docs/09-agent-profile-overrides.md):
+  0. launch-time override from the orchestrator for one agent instance
+     (must name a connected, capable provider; never widens what is connected)
   1. explicit user assignment (must be configured and capable)
   2. curated recommendation among configured, capable providers
   3. tenant default provider, only if it is capable of the activity
@@ -17,7 +19,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol
+from typing import Mapping, Protocol
 
 BASELINE_CAPABILITY = "text"
 
@@ -94,6 +96,12 @@ class NoProviderConfiguredError(ModelRoutingError):
     pass
 
 
+class OverrideRejectedError(ModelRoutingError):
+    """A launch-time override names a provider the tenant has not connected,
+    or one that cannot perform the activity. Overrides never widen what the
+    tenant has connected."""
+
+
 class RequiredAssignmentMissingError(ModelRoutingError):
     """A gated activity has no capable, approved provider. The message is
     written for the user, so the UI can show a setup prompt."""
@@ -147,6 +155,19 @@ class ResolvedModel:
     source: str  # "user" | "recommendation" | "fallback" | "platform"
     reasoning_effort: str = ""
     managed: bool = False  # True when the platform key was used
+
+
+@dataclass(frozen=True)
+class AgentProfile:
+    """A named agent role, such as "drafter" or "reviewer".
+
+    ``overrides`` is the orchestrator's launch-time choice for this profile:
+    activity ID -> Assignment. It applies only to the agent instance launched
+    with it, never to the tenant's saved routing. Keys are effective activity IDs.
+    """
+
+    profile_id: str
+    overrides: Mapping[str, Assignment] = field(default_factory=dict)
 
 
 class TenantConfigStore(Protocol):
@@ -251,12 +272,30 @@ class ActivityRouter:
                 pass
         return missing
 
+    def resolve_for_agent(
+        self,
+        tenant_id: str,
+        profile: AgentProfile,
+        activity_id: str,
+        *,
+        constraints: Constraints | None = None,
+    ) -> ResolvedModel:
+        """Resolve one activity for an agent launched with ``profile``.
+
+        Same as :meth:`resolve`, with the profile's launch overrides applied at
+        step 0. Other agents for the same tenant are unaffected.
+        """
+        return self.resolve(
+            tenant_id, activity_id, constraints=constraints, overrides=profile.overrides
+        )
+
     def resolve(
         self,
         tenant_id: str,
         activity_id: str,
         *,
         constraints: Constraints | None = None,
+        overrides: Mapping[str, Assignment] | None = None,
     ) -> ResolvedModel:
         if activity_id not in ACTIVITIES:
             raise UnknownActivityError(f"unknown activity: {activity_id}")
@@ -274,6 +313,29 @@ class ActivityRouter:
                 return assigned_model
             entry = configured.get(provider_type)
             return entry.preferred_model if entry else ""
+
+        # 0) Launch-time override, from the orchestrator for this agent instance.
+        #    Keys are effective activity IDs. An override may choose among the
+        #    tenant's connected, capable providers. It may not add a provider,
+        #    skip a capability check, or bypass the gate or platform policy.
+        override = (overrides or {}).get(activity)
+        if override is not None:
+            if override.provider_type not in configured:
+                raise OverrideRejectedError(
+                    f"override for '{spec.label}' names a provider this account has not connected"
+                )
+            if not capable(override.provider_type):
+                raise OverrideRejectedError(
+                    f"override for '{spec.label}' names a provider that cannot perform it"
+                )
+            return ResolvedModel(
+                activity_id=activity,
+                provider_type=override.provider_type,
+                model=model_for(override.provider_type, override.model),
+                secret_ref=secret_ref(tenant_id, override.provider_type),
+                source="override",
+                reasoning_effort=override.reasoning_effort,
+            )
 
         # 1) Explicit user assignment.
         assignment = cfg.assignments.get(activity)

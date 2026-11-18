@@ -44,6 +44,7 @@ reviewed in diffs, and served by the API without exposing keys.
 
 For each activity the router tries these steps in order:
 
+0. **Launch override.** An orchestrator can override the provider, model, or effort for one agent instance. The override must name a connected, capable provider, and it never changes the tenant's saved routing. See `09`.
 1. **Explicit user assignment.** Must name a configured provider and must be capable
    of the activity.
 2. **Curated recommendation.** The first configured provider that the capability

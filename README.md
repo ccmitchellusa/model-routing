@@ -21,7 +21,9 @@ several providers.
 | `06-route-overrides-and-audit.md` | Per-route overrides, research policy, shared-access attribution |
 | `07-lessons-and-pitfalls.md` | Known failure modes and the rules they produced |
 | `08-implementation-plan.md` | Ordered build slices with acceptance criteria |
+| `09-agent-profile-overrides.md` | Launch-time overrides per agent profile, applied at step 0 of the router |
 | `reference/activity_router.py` | Reference router implementation |
+| `reference/test_overrides.py` | Override and agent-profile tests (`python3 test_overrides.py`) |
 | `reference/test_activity_router.py` | Precedence tests (runs without dependencies: `python3 test_activity_router.py`) |
 | `reference/model-routing-panel.js` | Reference settings panel with the bezier routing diagram |
 | `reference/model_capabilities.json` | Example capability file (replace with reviewed values) |
