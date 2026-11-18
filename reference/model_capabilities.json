@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "last_reviewed_at": "YYYY-MM-DD",
+  "notes": "Example file. Replace the provider entries and review dates before use. Recommendations change, so edit this file in a reviewed diff. No credentials belong here.",
+  "providers": {
+    "openai": {
+      "label": "OpenAI",
+      "capabilities": ["text", "reasoning", "large_context", "image_generation", "image_edit"],
+      "recommended_activities": [
+        "brainstorm_ideas",
+        "plan_project",
+        "inline_assist",
+        "precise_revision",
+        "mechanics_check",
+        "image_generation",
+        "image_edit",
+        "output_formatting",
+        "simple_task"
+      ]
+    },
+    "anthropic": {
+      "label": "Anthropic",
+      "capabilities": ["text", "reasoning", "large_context"],
+      "recommended_activities": [
+        "plan_project",
+        "long_form_generation",
+        "structure_review",
+        "document_extraction"
+      ]
+    },
+    "restricted_host": {
+      "label": "Example restricted-content host",
+      "capabilities": ["text", "reasoning", "restricted_content"],
+      "recommended_activities": ["restricted_content_generation"]
+    },
+    "local_runtime": {
+      "label": "Local runtime",
+      "capabilities": ["text"],
+      "recommended_activities": ["simple_task"]
+    }
+  }
+}
